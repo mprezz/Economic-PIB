@@ -1,0 +1,59 @@
+---
+title: "PIB"
+author: "Mireia Pérez Martin"
+output: html_document
+---
+Fuente: INE
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Queremos saber como ha evolucionado la distribución de la renta. Para ello, tenemos que averiguar cual es el peso de los salarios (trabajo) y capital (beneficios) en el PIB total. 
+```{r}
+library(tidyverse)
+library(ESdata)
+
+pib_pm_rentas %>% filter(agregado %in% c("pib", "rem", "ben", "imp_sub") & dato == "base" & ajuste == "ajustado") %>%
+  pivot_wider(names_from = "agregado", values_from = "valor", values_fn = mean) %>%
+  mutate(pr_rem = rem/pib, pr_ben = ben/pib, pr_imp = imp_sub/pib) %>%
+  select(periodo, pr_rem, pr_ben, pr_imp) %>%
+  pivot_longer(cols = -periodo, names_to = "dato", values_to = "valor") 
+```
+
+Vamos a visualizarlo:
+```{r}
+pib_pm_rentas %>% filter(agregado %in% c("pib", "rem", "ben", "imp_sub") & dato == "base" & ajuste == "ajustado") %>%
+  pivot_wider(names_from = "agregado", values_from = "valor", values_fn = mean) %>%
+  mutate(pr_rem = rem/pib, pr_ben = ben/pib, pr_imp = imp_sub/pib) %>%
+  select(periodo, pr_rem, pr_ben, pr_imp) %>%
+  pivot_longer(cols = -periodo, names_to = "dato", values_to = "valor") %>%
+  mutate(dato = factor(dato, levels = c("pr_ben", "pr_rem", "pr_imp"))) %>%
+  ggplot(aes(periodo, valor, fill=dato)) +
+  geom_area() +
+  scale_fill_brewer(name = "rentas", labels = c("capital", "trabajo", "impuestos - subvenciones")) +
+  labs(title = "Reparto del PIB entre capital y trabajo", x="", y="") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+Vamos a ver la evolución del Comercio en el PIB y si sufrió un cambió por la crisis de 2008
+
+```{r}
+pib_pm_oferta %>% 
+  filter(agregado %in% c("pib", "vab_GT") & ajuste == "ajustado" & tipo == "valor" & dato == "base") %>%
+  pivot_wider(names_from = agregado, values_from = valor, values_fn = mean) %>% 
+  mutate(prop = vab_GT/pib) %>%
+  ggplot(aes(periodo, prop)) +
+  geom_line(size=1.2) + 
+  labs(title="Peso del Comercio en la economía", y="Comercio vs PIB", x="") +
+  geom_vline(xintercept = as.Date("2008-12-31"), linetype="dashed", size=0.5,col ="#FF0000") +
+  annotate("text", x=as.Date("2010-06-30"), y=0.12, label="crisis del 2008", hjust="left") +
+  annotate("curve", x=as.Date("2010-06-15"), y =0.12, xend=as.Date("2008-12-31"), yend=0.11, curvature=0.2, arrow = arrow(length = unit(2, "mm"))) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+```
+Como vemos, con la crisis del 2008 el sector del Comercio aumentó. Su aumento fue por la caída de otros sectores como la industria, la construcciión y la agricultura.

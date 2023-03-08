@@ -1,0 +1,95 @@
+---
+title: "Activepob"
+author: "Mireia Pérez"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Vamos a ver la evolución de la Población activa total con la encuesta trimestral del INE.
+
+```{r}
+library(tidyverse)
+library(ESdata)
+library(dplyr)
+View(epa_edad)
+
+epa_edad %>% filter(region=="ES" & edad =="total" & dato=="act" & sexo=="total")
+
+epa_edad %>% filter(region=="ES" & edad =="total" & dato=="act" & sexo=="total") %>% 
+  ggplot(aes(periodo, valor)) + 
+  geom_line() + 
+  labs(title="Evolución de la población activa en España")
+
+```
+
+Vamos a ver la evolución de la ocupación por sexo
+```{r}
+epa_edad %>% 
+  filter(region=="ES" & edad =="total" & 
+           dato=="ocu" & sexo!="total") %>% 
+  mutate(sexo=factor(sexo, levels = c("mujeres", "hombres"))) %>%
+  ggplot(aes(periodo, valor, col=sexo)) + 
+  geom_line() + 
+  labs(title="Evolución de la población ocupada por sexo en España", 
+       x="", y="población millones") +
+  scale_color_manual(values = c("#FF0000", "#0000FF")) + 
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+Vamos a ver una comparación entre la población activa y la población ocupada en la franja de edad entre 20 y 24 años y además, filtrada por sexo
+```{r}
+epa_edad %>% filter(region=="ES" & edad == "20-24" & sexo!="total" & dato %in% 
+                      c("act","ocu")) %>% 
+  mutate(dato = factor(dato, levels = c("act", "ocu"))) %>%
+  ggplot(aes(periodo, valor, col=dato)) + 
+  geom_line() + 
+  scale_color_manual(name="Población", values=c("#000000", "#0000FF", "#FF0000"), 
+                     labels=c("activa", "ocupada")) + 
+  theme_bw() + 
+  labs(title="Comparación de población activa y ocupada en la franja de 20-24 años en España", 
+       x = "", y = "población millones")  + 
+  theme(legend.position = "bottom") + 
+  ylim(0, 1700) +
+  facet_grid(. ~ sexo)
+```
+Como sabemos, España tiende a la ocupación estacional y por ende, el paro estacional; por ello, las líneas tienen tantos saltos. Además, partimos de una base de datos trimestral y es por eso que observamos mejor estos saltos de estaciones. 
+
+
+
+Si en cambio, queremos hacer los calculos en referencia al paro, como no tenemos proporcionado directamente este factor, vamos a crear la tasa de paro (ocupación/activo).
+
+```{r}
+epa_edad %>% filter(region=="ES" & edad=="total" & sexo=="total") %>%
+  pivot_wider(names_from = "dato", values_from = "valor", values_fn = mean) %>%
+  mutate(t_paro=par/act)
+
+```
+
+Ahora vamos a volver a poner los datos en largo (pivot_longer) para poder visualizar los datos
+```{r}
+epa_edad %>% filter(region=="ES" & edad=="total" & sexo=="total") %>%
+  pivot_wider(names_from = "dato", values_from = "valor", values_fn = mean) %>%
+  mutate(t_paro=par/act) %>% 
+  pivot_longer(cols = pob:t_paro, names_to = "dato", values_to = "valor") %>% 
+  filter(dato %in% c("t_paro"))
+```
+
+```{r}
+epa_edad %>% filter(region=="ES" & edad=="total" & sexo=="total") %>%
+  pivot_wider(names_from = "dato", values_from = "valor", values_fn = mean) %>%
+  mutate(t_paro=par/act) %>% 
+  pivot_longer(cols = pob:t_paro, names_to = "dato", values_to = "valor") %>% 
+  filter(dato %in% c("t_paro")) %>%
+  ggplot(aes(periodo, valor, col=dato)) +
+  geom_line() +
+  scale_color_manual(name="tasas", labels=c("paro"), values=c("#FF0000")) +
+  labs(title = "Tasa de paro en España", x="", y="tasa") + 
+  scale_y_continuous(labels = scales::percent, limits=c(0,0.65)) +
+  theme_bw() + 
+  theme(legend.position = "bottom")
+```
+
+
